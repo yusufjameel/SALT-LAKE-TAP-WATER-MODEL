@@ -5,11 +5,11 @@
 
 # Yusuf's computer
 #setwd("C:/Users/yusu8/Dropbox/Utah_water_isotopes/JVWCD")
-setwd("C:/Users/u0817369/Dropbox/Utah_water_isotopes/JVWCD")
+#setwd("C:/Users/u0817369/Dropbox/Utah_water_isotopes/JVWCD")
 #setwd("C:/Users/yusuf/Dropbox/Utah_water_isotopes/JVWCD")
 # Rich's computer
-#setwd("~/Downloads")
-data <- read.csv("May_5.csv",header=TRUE)
+setwd("~/Documents/SALT-LAKE-TAP-WATER-MODEL/")
+data <- read.csv("May_5_nomix.csv",header=TRUE)
 
 # break into source and supplyline data frames
 source.data <- subset(data,data$Site_Description=="Source")
@@ -54,14 +54,18 @@ for (i in 1:length(source.siteIDs)) {
 	source.address[i] <- subset(source.data$Address,source.data$Site_ID==source.siteIDs[i])[1]
 	source.lat[i] <- subset(source.data$Latitude,source.data$Site_ID==source.siteIDs[i])[1]
 	source.lon[i] <- subset(source.data$Longitude,source.data$Site_ID==source.siteIDs[i])[1]
-	#######SITE ID
-	source.uniqueID[i] <- subset(source.data$Site_ID,source.data$Site_ID==source.siteIDs)
 }
+	#######SITE ID
+	source.uniqueID <- seq(1,length(source.lon),1)
+
+	# volumes of different treatment plants
+	source.volumes <- c(1e-1000,300,300,3000,1200)
 
 # combine vectors back into single, reduced dataframe - STDEV DEX missing!
 source.reduced <- data.frame("mean_d18O"=source.mean_d18O,"mean_d2H"=source.mean_d2H,"mean_DEX"=source.mean_DEX,
 	"stdev_d18O"=source.stdev_d18O,"stdev_d2H"=source.stdev_d2H,"stdev_DEX"=source.stdev_DEX, "month"=source.month,"year"=source.year,
-	"lat"=source.lat,"lon"=source.lon, "SITE_ID" = source.siteIDs,"uniqueIDS" = source.uniqueID)
+	"lat"=source.lat,"lon"=source.lon, "SITE_ID" = source.siteIDs,"uniqueIDS" = source.uniqueID,"volumes"=source.volumes)
+
 
 #------------------------------
 # processing supply dataframe
@@ -105,74 +109,59 @@ supply.reduced <- data.frame("mean_d18O"=supply.mean_d18O,"mean_d2H"=supply.mean
 	"stdev_d18O"=supply.stdev_d18O,"stdev_d2H"=supply.stdev_d2H,"stdev_DEX"=supply.stdev_DEX,"month"=supply.month,"year"=supply.year,
 	"lat"=supply.lat,"lon"=supply.lon, "SITE_ID" = supply.siteIDs)
 
-#==========================================================================
-# 1 source model - how likely is each supply line sample to come from each source?
 
-# simple t tests
+# ##############################################
+# # calculation of likelihood values for d18O
+# ##############################################
 
-pvals <- matrix(nrow=nrow(supply.reduced),ncol=nrow(source.reduced))
+# lvals <- matrix(nrow=nrow(supply.reduced),ncol=nrow(source.reduced))
+# for (i in 1:nrow(supply.reduced)) {
+#     for (j in 1:nrow(source.reduced)) {
+#     # assign likelihood for given i,j
+#    lvals[i,j] <- pnorm((supply.reduced$mean_d18O[i] + supply.reduced$stdev_d18O[i]), 
+#    		mean = source.reduced$mean_d18O[j], sd = source.reduced$stdev_d18O[j], lower.tail = TRUE) - 
+#    		pnorm((supply.reduced$mean_d18O[i] - supply.reduced$stdev_d18O[i]), 
+#    		mean = source.reduced$mean_d18O[j], sd = source.reduced$stdev_d18O[j], lower.tail = TRUE)
+#   }
+# }
+# colnames(lvals) <- c("solena_way", "JVWTP", "SEWTP", "SWWTP" , "WELL_1300", "M1", "M2")
+# l<-data.frame(lvals)
 
-for (i in 1:nrow(supply.reduced)) {
-	supply.resampled <- rnorm(1000,mean=supply.reduced$mean_d18O[i],sd=supply.reduced$stdev_d18O[i])
-	for (j in 1:nrow(source.reduced)) {
-		source.resampled <- rnorm(1000,mean=source.reduced$mean_d18O[j],sd=source.reduced$stdev_d18O[j])
-		# assign pval for given i,j
-		pvals[i,j] <- t.test(supply.resampled,source.resampled)$p.value
-	}
-}
+# ###########################
+# # plotting the likehood values
+# ################
+# lvals_df <- data.frame("SITE_ID" = supply.reduced$SITE_ID, "solena_way" = l$solena_way, "JVWTP" = l$JVWTP, 
+#                        "SEWTP" =l$SEWTP, "SWWTP" =l$SWWTP, "WELL_1300" = l$WELL_1300, "M1" = l$M1, "M2" = l$M2)
+# ll_d18o <- plot(x= c(1,2,3,4,5,6,7),lvals_df[1,2:8], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
+# title(main = "d18O_LIKELIHOOD")
+# p = sample(rainbow(63))
+# for (i in 2:64){
+#   lines(x= c(1,2,3,4,5,6,7),lvals_df[i,2:8], type = "l", col = p[i])
+# }
 
-##############################################
-# calculation of likelihood values for d18O
-##############################################
+# ######################################
+# #calculation of posterior distributions
+# post <- matrix(nrow=nrow(lvals), ncol=ncol(lvals))
+# i <- 1:nrow(lvals)
+# j <- 1:ncol(lvals)
+# # assign posterior for given i,j supply.
+# post[i,j] <- (lvals[i,j]*(1/ncol(lvals)))/((1/ncol(lvals))* rowSums(lvals))
+# #rowSums(post)
+# #colSums(post)
 
-lvals <- matrix(nrow=nrow(supply.reduced),ncol=nrow(source.reduced))
-for (i in 1:nrow(supply.reduced)) {
-    for (j in 1:nrow(source.reduced)) {
-    # assign likelihood for given i,j
-   lvals[i,j] <- pnorm((supply.reduced$mean_d18O[i] + supply.reduced$stdev_d18O[i]), 
-   		mean = source.reduced$mean_d18O[j], sd = source.reduced$stdev_d18O[j], lower.tail = TRUE) - 
-   		pnorm((supply.reduced$mean_d18O[i] - supply.reduced$stdev_d18O[i]), 
-   		mean = source.reduced$mean_d18O[j], sd = source.reduced$stdev_d18O[j], lower.tail = TRUE)
-  }
-}
-colnames(lvals) <- c("solena_way", "JVWTP", "SEWTP", "SWWTP" , "WELL_1300", "M1", "M2")
-l<-data.frame(lvals)
-
-###########################
-# plotting the likehood values
-################
-lvals_df <- data.frame("SITE_ID" = supply.reduced$SITE_ID, "solena_way" = l$solena_way, "JVWTP" = l$JVWTP, 
-                       "SEWTP" =l$SEWTP, "SWWTP" =l$SWWTP, "WELL_1300" = l$WELL_1300, "M1" = l$M1, "M2" = l$M2)
-ll_d18o <- plot(x= c(1,2,3,4,5,6,7),lvals_df[1,2:8], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
-title(main = "d18O_LIKELIHOOD")
-p = sample(rainbow(63))
-for (i in 2:64){
-  lines(x= c(1,2,3,4,5,6,7),lvals_df[i,2:8], type = "l", col = p[i])
-}
-
-######################################
-#calculation of posterior distributions
-post <- matrix(nrow=nrow(lvals), ncol=ncol(lvals))
-i <- 1:nrow(lvals)
-j <- 1:ncol(lvals)
-# assign posterior for given i,j supply.
-post[i,j] <- (lvals[i,j]*(1/ncol(lvals)))/((1/ncol(lvals))* rowSums(lvals))
-#rowSums(post)
-#colSums(post)
-
-pp_d18o <- plot(x= c(1,2,3,4,5,6,7),post[1,1:7], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
-title(main = "d18O_POSTERIOR")
-p = sample(rainbow(63))
-for (i in 2:64){
-  lines(x= c(1,2,3,4,5,6,7),post[i,1:7], type = "l", col = p[i])
-}
+# pp_d18o <- plot(x= c(1,2,3,4,5,6,7),post[1,1:7], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
+# title(main = "d18O_POSTERIOR")
+# p = sample(rainbow(63))
+# for (i in 2:64){
+#   lines(x= c(1,2,3,4,5,6,7),post[i,1:7], type = "l", col = p[i])
+# }
 
 
-rel_likelihood <- matrix(nrow=nrow(post),ncol=ncol(post))
+# rel_likelihood <- matrix(nrow=nrow(post),ncol=ncol(post))
 
-for (i in 1:nrow(post)) {
-	rel_likelihood[i,] <- post[i,]/max(post[i,])
-}
+# for (i in 1:nrow(post)) {
+# 	rel_likelihood[i,] <- post[i,]/max(post[i,])
+# }
 
 ##############################################
 # calculation of likelihood values for d2H
@@ -182,46 +171,72 @@ lvals_H <- matrix(nrow=nrow(supply.reduced),ncol=nrow(source.reduced))
 for (i in 1:nrow(supply.reduced)) {
   for (j in 1:nrow(source.reduced)) {
     # assign likelihood for given i,j
-    lvals_H[i,j] <- pnorm((supply.reduced$mean_d2H[i] + supply.reduced$stdev_d2H[i]), 
-                        mean = source.reduced$mean_d2H[j], sd = source.reduced$stdev_d2H[j], lower.tail = TRUE) - 
-      pnorm((supply.reduced$mean_d2H[i] - supply.reduced$stdev_d2H[i]), 
-            mean = source.reduced$mean_d2H[j], sd = source.reduced$stdev_d2H[j], lower.tail = TRUE)
+    lvals_H[i,j] <- pnorm((supply.reduced$mean_d2H[i] + 3*supply.reduced$stdev_d2H[i]), 
+                        mean = source.reduced$mean_d2H[j], sd = 3*source.reduced$stdev_d2H[j], lower.tail = TRUE) - 
+      pnorm((supply.reduced$mean_d2H[i] - 3*supply.reduced$stdev_d2H[i]), 
+            mean = source.reduced$mean_d2H[j], sd = 3*source.reduced$stdev_d2H[j], lower.tail = TRUE)
   }
 }
 
-colnames(lvals_H) <- c("solena_way", "JVWTP", "SEWTP", "SWWTP" , "WELL_1300",  "M1", "M2")
+colnames(lvals_H) <- c("solena_way", "JVWTP", "SEWTP", "SWWTP" , "WELL_1300")#,  "M1", "M2")
 lH<-data.frame(lvals_H)
 
 ###########################
 # dataframe for likelihood functions
 ################
+quartz()
 lvals_dH <- data.frame("SITE_ID" = supply.reduced$SITE_ID,
                        "solena_way" = lH$solena_way, "JVWTP" = lH$JVWTP, "SEWTP" =lH$SEWTP, 
-                       "SWWTP" =lH$SWWTP,"WELL_1300" = lH$WELL_1300, "M1" = lH$M1, "M2" = lH$M2  )
-ll_d2H <- plot(x= c(1,2,3,4,5,6,7),lvals_dH[1,2:8], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
+                       "SWWTP" =lH$SWWTP,"WELL_1300" = lH$WELL_1300)#, "M1" = lH$M1, "M2" = lH$M2  )
+ll_d2H <- plot(x= c(1,2,3,4,5),lvals_dH[1,2:6], col ="red", type = "l", xlim = c(0.8,5.1), ylim = c(0,1) )
 title(main = "d2H_LIKELIHOOD")
 p = sample(rainbow(63))
 for (i in 2:64){
-  lines(x= c(1,2,3,4,5,6,7),lvals_dH[i,2:8], type = "l", col = p[i])
+  lines(x= c(1,2,3,4,5),lvals_dH[i,2:6], type = "l", col = p[i])
 }
 
 #################
 #calculation of posterior distributions
-post_H <- matrix(nrow=nrow(lvals_H), ncol=ncol(lvals_H))
+post_H_uniform <- matrix(nrow=nrow(lvals_H), ncol=ncol(lvals_H))
+post_H_volwgt <- matrix(nrow=nrow(lvals_H), ncol=ncol(lvals_H))
+
 i <- 1:nrow(lvals_H)
 j <- 1:ncol(lvals_H)
 # assign posterior for given i,jsupply.
-post_H[i,j] <- (lvals_H[i,j]*ncol(lvals_H))/(ncol(lvals_H)* rowSums(lvals_H))
+for (j in 1:nrow(source.reduced)) {
+	post_H_uniform[i,j] <- (lvals_H[i,j]*(1/ncol(lvals_H)))/((1/ncol(lvals_H))*rowSums(lvals_H))
+	post_H_volwgt[i,j] <- (lvals_H[i,j]*(source.reduced$volume[j]/sum(source.reduced$volume,na.rm=T)))/
+		((source.reduced$volume[j]/sum(source.reduced$volume,na.rm=T))*rowSums(lvals_H))
+}
+
 #rowSums(post)
 #colSums(post)
 #########################################
 ##plotting the POSTERIOR values
-pp_H <- plot(x= c(1,2,3,4,5,6,7),post_H[1,1:7], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
+quartz()
+pp_H <- plot(x= c(1,2,3,4,5),post_H_uniform[1,1:5], col ="red", type = "l", xlim = c(0.8,5.1), ylim = c(0,1) )
 title(main = "d2H_POSTERIOR")
 p = sample(rainbow(63))
 for (i in 2:64){
-  lines(x= c(1,2,3,4,5,6,7),post_H[i,1:7], type = "l", col = p[i])
+  lines(x= c(1,2,3,4,5),post_H_uniform[i,1:5], type = "l", col = p[i])
 }
+
+quartz()
+pp_H <- plot(x= c(1,2,3,4,5),post_H_volwgt[1,1:5], col ="red", type = "l", xlim = c(0.8,5.1), ylim = c(0,1) )
+title(main = "d2H_POSTERIOR")
+p = sample(rainbow(63))
+for (i in 2:64){
+  lines(x= c(1,2,3,4,5),post_H_volwgt[i,1:5], type = "l", col = p[i])
+}
+
+quartz()
+pp_H <- plot(x= c(1,2,3,4,5),post_H_volwgt[1,1:5]-post_H_uniform[1,1:5], col ="red", type = "l", xlim = c(0.8,5.1), ylim = c(0,1) )
+title(main = "d2H_POSTERIOR")
+p = sample(rainbow(63))
+for (i in 2:64){
+  lines(x= c(1,2,3,4,5),post_H_volwgt[1,1:5]-post_H_uniform[1,1:5], type = "l", col = p[i])
+}
+
 
 pp_export <- data.frame(post_H, supply.reduced$lat, supply.reduced$lon, supply.reduced$SITE_ID)
 #write.csv(pp_export, file ="post_may2015_H.csv")
@@ -236,7 +251,7 @@ require(rgeos)
 
 
 #shapefile <- readOGR(dsn = "C:/Users/u0817369/Dropbox/Utah_water_isotopes/slc_county_shape_file _1" ,layer = "counties_clip")
-shapefile <- readOGR(dsn = "C:/Users/u0817369/Dropbox/Utah_water_isotopes/slc_county_shape_file _1" ,layer = "Export_Output")
+shapefile <- readOGR(dsn = "~/Documents/SALT-LAKE-TAP-WATER-MODEL/slc_tap_shape_file/Export_Output.shp" ,layer = "Export_Output")
 proj4string(shapefileDF) <- CRS("+proj=longlat")
 #shapefile <- readShapePoly( "Export_Output.shp")
 shapefile@data$id <- rownames(shapefile@data)
