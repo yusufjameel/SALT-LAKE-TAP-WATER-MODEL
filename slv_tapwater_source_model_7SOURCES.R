@@ -55,11 +55,11 @@ for (i in 1:length(source.siteIDs)) {
 	source.lat[i] <- subset(source.data$Latitude,source.data$Site_ID==source.siteIDs[i])[1]
 	source.lon[i] <- subset(source.data$Longitude,source.data$Site_ID==source.siteIDs[i])[1]
 }
-	#######SITE ID
+	# Generate a unique site ID
 	source.uniqueID <- seq(1,length(source.lon),1)
 
 	# volumes of different treatment plants
-	source.volumes <- c(1e-1000,300,300,3000,1200)
+	source.volumes <- c(150,300,300,3000,1200)
 
 # combine vectors back into single, reduced dataframe - STDEV DEX missing!
 source.reduced <- data.frame("mean_d18O"=source.mean_d18O,"mean_d2H"=source.mean_d2H,"mean_DEX"=source.mean_DEX,
