@@ -108,59 +108,6 @@ supply.reduced <- data.frame("mean_d18O"=supply.mean_d18O,"mean_d2H"=supply.mean
 #==========================================================================
 
 ##############################################
-# calculation of likelihood values for d18O
-##############################################
-
-lvals <- matrix(nrow=nrow(supply.reduced),ncol=nrow(source.reduced))
-for (i in 1:nrow(supply.reduced)) {
-    for (j in 1:nrow(source.reduced)) {
-    # assign likelihood for given i,j
-   lvals[i,j] <- pnorm((supply.reduced$mean_d18O[i] + supply.reduced$stdev_d18O[i]), 
-   		mean = source.reduced$mean_d18O[j], sd = source.reduced$stdev_d18O[j], lower.tail = TRUE) - 
-   		pnorm((supply.reduced$mean_d18O[i] - supply.reduced$stdev_d18O[i]), 
-   		mean = source.reduced$mean_d18O[j], sd = source.reduced$stdev_d18O[j], lower.tail = TRUE)
-  }
-}
-colnames(lvals) <- c("solena_way", "JVWTP", "SEWTP", "SWWTP" , "WELL_1300", "M1", "M2")
-l<-data.frame(lvals)
-
-###########################
-# plotting the likehood values
-################
-lvals_df <- data.frame("SITE_ID" = supply.reduced$SITE_ID, "solena_way" = l$solena_way, "JVWTP" = l$JVWTP, 
-                       "SEWTP" =l$SEWTP, "SWWTP" =l$SWWTP, "WELL_1300" = l$WELL_1300, "M1" = l$M1, "M2" = l$M2)
-ll_d18o <- plot(x= c(1,2,3,4,5,6,7),lvals_df[1,2:8], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
-title(main = "d18O_LIKELIHOOD")
-p = sample(rainbow(63))
-for (i in 2:64){
-  lines(x= c(1,2,3,4,5,6,7),lvals_df[i,2:8], type = "l", col = p[i])
-}
-
-######################################
-#calculation of posterior distributions
-post <- matrix(nrow=nrow(lvals), ncol=ncol(lvals))
-i <- 1:nrow(lvals)
-j <- 1:ncol(lvals)
-# assign posterior for given i,j supply.
-post[i,j] <- (lvals[i,j]*(1/ncol(lvals)))/((1/ncol(lvals))* rowSums(lvals))
-#rowSums(post)
-#colSums(post)
-
-pp_d18o <- plot(x= c(1,2,3,4,5,6,7),post[1,1:7], col ="red", type = "l", xlim = c(0.8,7.1), ylim = c(0,1) )
-title(main = "d18O_POSTERIOR")
-p = sample(rainbow(63))
-for (i in 2:64){
-  lines(x= c(1,2,3,4,5,6,7),post[i,1:7], type = "l", col = p[i])
-}
-
-
-rel_likelihood <- matrix(nrow=nrow(post),ncol=ncol(post))
-
-for (i in 1:nrow(post)) {
-	rel_likelihood[i,] <- post[i,]/max(post[i,])
-}
-
-##############################################
 # calculation of likelihood values for d2H and DEX combined
 ##############################################
 
@@ -171,17 +118,17 @@ s2 <- 0.3
 sigma <- matrix(c(s1^2, s1*s2*rho, s1*s2*rho, s2^2),2)
 library(MASS)
 library(mvtnorm)
-upper <- vector()
-lower <- vector()
-mean <- vector()
+upper <- matrix(nrow=nrow(supply.reduced),ncol=2)
+lower <- matrix(nrow=nrow(supply.reduced),ncol=2)
+mean <- matrix(nrow=nrow(source.reduced),ncol=2)
 for (i in 1:nrow(supply.reduced)) {
   for (j in 1:nrow(source.reduced)) {
     # assign likelihood for given i,j
-    upper[i] = c((supply.reduced$mean_d2H[i] + supply.reduced$stdev_d2H[i]), supply.reduced$mean_DEX[i] + supply.reduced$stdev_DEX[i])
-    lower[i] = c((supply.reduced$mean_d2H[i] - supply.reduced$stdev_d2H[i]), supply.reduced$mean_DEX[i] - supply.reduced$stdev_DEX[i])
-    mean[j] = c((source.reduced$mean_d2H[j]),(source.reduced$mean_DEX[j]))
+    upper[i,] = c((supply.reduced$mean_d2H[i] + supply.reduced$stdev_d2H[i]), (supply.reduced$mean_DEX[i] + supply.reduced$stdev_DEX[i]))
+    lower[i,] = c((supply.reduced$mean_d2H[i] - supply.reduced$stdev_d2H[i]), (supply.reduced$mean_DEX[i] - supply.reduced$stdev_DEX[i]))
+    mean[j,] = c((source.reduced$mean_d2H[j]),(source.reduced$mean_DEX[j]))
     
-    lvals_H[i,j] <-pmvnorm(upper = upper[i], lower = lower[i], mean = mean[j], sigma = sigma)
+    lvals_H[i,j] <-pmvnorm(upper = upper[i,], lower = lower[i,], mean = mean[,j], sigma = sigma)
   }
 }
 
